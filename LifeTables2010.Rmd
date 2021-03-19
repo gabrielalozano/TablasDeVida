@@ -1,0 +1,354 @@
+---
+title: "LifeTablePR2010"
+author: "Gabriela Lozano"
+output:
+  html_document:
+    df_print: paged
+---
+Para comenzar, vamos a adjuntar las librerias necesarias
+
+
+```{r}
+library(dplyr)
+library(pracma)
+```
+
+Luego, vamos a leer los csv necesarios. Y los vamos a limpear de forma que lo podamos utilizar proximamente.
+```{r}
+# Leer csv
+Estimado1 = read.csv("~/LifeTables/estimados_municipio_2000a2010_edad_sexo.csv")
+Muertes = read.csv("~/LifeTables/defunciones_2005_a_2014_para_preparar_tablas_de_vida_por_municipio.csv")
+
+#Primero hay que limpear la data de forma que todos los muncipios tengan sus nombres correctamente escritos
+#En los primeros dos files de estimados de poblacion, incluye la palabra Municipio. Arreglamos esto de la siguiente forma
+Estimado1$NAME = gsub(" Municipio", "",Estimado1$NAME)
+Estimado2$NAME = gsub(" Municipio", "",Estimado2$NAME)
+
+#Para las muertes cambiaremos los nombres manualmente de los siguientes pueblos:
+names(Estimado1)[names(Estimado1) == 'NAME' ]<- "municipio"
+names(Estimado1)[names(Estimado1) == 'MUNICIPIO' ]<- "fips"
+names(Estimado1)[names(Estimado1) == "SEX"] <- "sexo"
+
+
+Pop2010 = Estimado1[c(4,5,17)]
+Male2010 = Pop2010 %>% filter(sexo==1) %>% group_by(AGEGRP) %>% summarize(sum = sum(CENSUS2010POP))
+Female2010 = Pop2010 %>% filter(sexo==2) %>% group_by(AGEGRP) %>% summarize(sum = sum(CENSUS2010POP))
+
+Muertes2010 = Muertes[c(6,7,8)]
+
+
+names(Male2010)[names(Male2010) == 'sum' ]<- "CENSUS2010POP"
+names(Female2010)[names(Female2010) == 'sum' ]<- "CENSUS2010POP"
+
+```
+
+Luego, vamos a escribir la funcion para calcular.
+```{r}
+getTable <- function(pop, muertes,sexo1){
+  library(dplyr)
+  # Filtrar por sexo y ciudad
+  Ciudad1 = pop %>% filter(AGEGRP != 0)
+  Ciudad2 = muertes %>% filter(year == 2010) %>% filter(sexo==sexo1)
+  
+  #Calcular nax
+  Ciudad2$nax =0
+  
+  Ciudad2[Ciudad2$edad1 <=4, "nax"] = mean(Ciudad2[Ciudad2$edad1 <=4, "edad1"])
+  Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "nax"] = -5+mean(Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "edad1"])
+  Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "nax"] = -10 + mean(Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "edad1"])
+  Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "nax"] = -15+mean(Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "edad1"])
+  Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "nax"] = -20+mean(Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "edad1"])
+  Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "nax"] = -25+mean(Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "edad1"])
+  Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "nax"] = -30+mean(Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "edad1"])
+  Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "nax"] =  -35+mean(Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "edad1"])
+  Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "nax"] =  -40+mean(Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "edad1"])
+  Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "nax"] = -45+mean(Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "edad1"])
+  Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "nax"] = -50+mean(Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "edad1"])
+  Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "nax"] = -55+mean(Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "edad1"])
+  Ciudad2[Ciudad2$edad1>=60 & Ciudad2$edad1 <=64, "nax"] = -60+mean(Ciudad2[Ciudad2$edad1>60 & Ciudad2$edad1 <=64, "edad1"])
+  Ciudad2[Ciudad2$edad1>=64 & Ciudad2$edad1 <=69, "nax"] = -64+mean(Ciudad2[Ciudad2$edad1>64 & Ciudad2$edad1 <=69, "edad1"])
+  Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "nax"] = -70+mean(Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "edad1"])
+  Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "nax"] = -75+mean(Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "edad1"])
+  Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "nax"] = -80+mean(Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "edad1"])
+  Ciudad2[Ciudad2$edad1>=85, "nax"] = -85+mean(Ciudad2[Ciudad2$edad1>=85, "edad1"])
+  
+  
+  
+  #Crear columna
+  Ciudad2$AGEGRP =0
+  
+  
+  # Agrupar muertes
+  Ciudad2[Ciudad2$edad1 <=4, "AGEGRP"] = 1
+  Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "AGEGRP"] = 2
+  Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "AGEGRP"] = 3
+  Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "AGEGRP"] = 4
+  Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "AGEGRP"] = 5
+  Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "AGEGRP"] = 6
+  Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "AGEGRP"] = 7
+  Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "AGEGRP"] = 8
+  Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "AGEGRP"] = 9
+  Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "AGEGRP"] = 10
+  Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "AGEGRP"] = 11
+  Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "AGEGRP"] = 12
+  Ciudad2[Ciudad2$edad1>=60 & Ciudad2$edad1 <=64, "AGEGRP"] = 13
+  Ciudad2[Ciudad2$edad1>=65 & Ciudad2$edad1 <=69, "AGEGRP"] = 14
+  Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "AGEGRP"] = 15
+  Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "AGEGRP"] = 16
+  Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "AGEGRP"] = 17
+  Ciudad2[Ciudad2$edad1>=85, "AGEGRP"] = 18
+  
+  #Sumarlas
+  TotalMuertes = data.frame(table(factor(Ciudad2$AGEGRP, levels=1:18)))
+  names(TotalMuertes)[names(TotalMuertes) == 'Var1' ]<- "AGEGRP"
+  
+  #Juntarlo todo
+  Total = merge(Ciudad1, TotalMuertes, by="AGEGRP")
+  
+  #Utilizar lo necesario dde la tabla
+  Total = Total %>%
+    select(AGEGRP,CENSUS2010POP, Freq)
+  #Calcular el l0
+  l0 = sum(Total$CENSUS2010POP)
+  Total$lx = l0
+  
+  #Loop que calcula el lx
+  for(i in c(1:18)){
+    Total[i, "lx"] = l0
+    l0 = l0 - Total[i, "Freq"]
+  }
+  
+  # Calcular nax
+  Ciudad2$nax =0
+  
+  
+  Ciudad2[Ciudad2$edad1 <=4, "nax"] = mean(Ciudad2[Ciudad2$edad1 <=4, "edad1"])
+  Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "nax"] = -5+mean(Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "edad1"])
+  Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "nax"] = -10 + mean(Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "edad1"])
+  Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "nax"] = -15+mean(Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "edad1"])
+  Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "nax"] = -20+mean(Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "edad1"])
+  Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "nax"] = -25+mean(Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "edad1"])
+  Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "nax"] = -30+mean(Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "edad1"])
+  Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "nax"] =  -35+mean(Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "edad1"])
+  Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "nax"] =  -40+mean(Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "edad1"])
+  Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "nax"] = -45+mean(Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "edad1"])
+  Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "nax"] = -50+mean(Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "edad1"])
+  Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "nax"] = -55+mean(Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "edad1"])
+  Ciudad2[Ciudad2$edad1>=60 & Ciudad2$edad1 <=64, "nax"] = -60+mean(Ciudad2[Ciudad2$edad1>60 & Ciudad2$edad1 <=64, "edad1"])
+  Ciudad2[Ciudad2$edad1>=65 & Ciudad2$edad1 <=69, "nax"] = -64+mean(Ciudad2[Ciudad2$edad1>64 & Ciudad2$edad1 <=69, "edad1"])
+  Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "nax"] = -70+mean(Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "edad1"])
+  Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "nax"] = -75+mean(Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "edad1"])
+  Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "nax"] = -80+mean(Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "edad1"])
+  Ciudad2[Ciudad2$edad1>=85, "nax"] = -85+mean(Ciudad2[Ciudad2$edad1>=85, "edad1"])
+  
+  #Sumarlas muertes
+  TotalMuertes = data.frame(table(factor(Ciudad2$AGEGRP, levels=1:18)))
+  names(TotalMuertes)[names(TotalMuertes) == 'Var1' ]<- "AGEGRP"
+  
+  #Seprar nax
+  nax = data.frame(Ciudad2$AGEGRP, Ciudad2$nax)
+  names(nax)[names(nax) == 'Ciudad2.AGEGRP' ]<- "AGEGRP"
+  names(nax)[names(nax) == 'Ciudad2.nax' ]<- "nax"
+  
+  #Unirlo con la frequencia y llenar nas a 0
+  nax = unique(nax)
+  TotalMuertes=merge(nax, TotalMuertes, by="AGEGRP", all=TRUE)
+  TotalMuertes[is.na(TotalMuertes)] <- 0
+  
+  #Juntarlo todo
+  Total = merge(Ciudad1, TotalMuertes, by="AGEGRP")
+  
+  #selecionando columnas necesarias
+  FinalTabla = Total %>%
+    select(AGEGRP,CENSUS2010POP, Freq,nax)
+  l0 = sum(FinalTabla$CENSUS2010POP)
+  FinalTabla$lx = l0
+  
+  #calculando lx
+  for(i in c(1:18)){
+    FinalTabla[i, "lx"] = l0
+    l0 = l0 - FinalTabla[i, "Freq"]
+  }
+  
+  #Mutacion que calcula la tabla de vida
+  life_table <- FinalTabla %>%
+    mutate("nqx"=Freq/lx,
+           "npx"=(lx-Freq)/lx,
+           "Lx"=5*lx+nax,
+           "Tx"=rev(cumsum(rev(Lx))),
+           "e0"=Tx/lx,
+           "nmx"=Freq/Lx,
+    )
+  
+  #Devuelve tabla de vida
+  return(life_table)
+}
+```
+La funcion creada nos devuelve las tablas de vida para hombres y mujeres
+```{r}
+print("Mujeres")
+print(getTable(Female2010,Muertes2010,2))
+print("Hombres")
+print(getTable(Male2010,Muertes2010,1))
+```
+Ahora ponerlos todos en un dataframe y ponerlo en un file de csv
+```{r}
+write.csv(getTable(Female2010,Muertes2010,2),"LifeTablesMujeres2010.csv", row.names = FALSE)
+write.csv(getTable(Male2010,Muertes2010,1),"LifeTablesHombres.csv2010", row.names = FALSE)
+
+```
+Ahora vamos a guardarlo para sacar las tablas de vida de todo Puerto Rico 2010
+```{r}
+Both2010 = Pop2010 %>% filter(sexo==0) %>% group_by(AGEGRP) %>% summarize(sum = sum(CENSUS2010POP))
+names(Both2010)[names(Both2010) == 'sum' ]<- "CENSUS2010POP"
+```
+Corremos una funcion modificada para calcular tablas de vida
+```{r}
+getTableSinSexo <- function(pop, muertes){
+  library(dplyr)
+  # Filtrar por sexo y ciudad
+  Ciudad1 = pop %>% filter(AGEGRP != 0)
+  Ciudad2 = muertes %>% filter(year == 2010) 
+  
+  #Calcular nax
+  Ciudad2$nax =0
+  
+  Ciudad2[Ciudad2$edad1 <=4, "nax"] = mean(Ciudad2[Ciudad2$edad1 <=4, "edad1"])
+  Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "nax"] = -5+mean(Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "edad1"])
+  Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "nax"] = -10 + mean(Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "edad1"])
+  Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "nax"] = -15+mean(Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "edad1"])
+  Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "nax"] = -20+mean(Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "edad1"])
+  Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "nax"] = -25+mean(Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "edad1"])
+  Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "nax"] = -30+mean(Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "edad1"])
+  Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "nax"] =  -35+mean(Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "edad1"])
+  Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "nax"] =  -40+mean(Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "edad1"])
+  Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "nax"] = -45+mean(Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "edad1"])
+  Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "nax"] = -50+mean(Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "edad1"])
+  Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "nax"] = -55+mean(Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "edad1"])
+  Ciudad2[Ciudad2$edad1>=60 & Ciudad2$edad1 <=64, "nax"] = -60+mean(Ciudad2[Ciudad2$edad1>60 & Ciudad2$edad1 <=64, "edad1"])
+  Ciudad2[Ciudad2$edad1>=64 & Ciudad2$edad1 <=69, "nax"] = -64+mean(Ciudad2[Ciudad2$edad1>64 & Ciudad2$edad1 <=69, "edad1"])
+  Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "nax"] = -70+mean(Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "edad1"])
+  Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "nax"] = -75+mean(Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "edad1"])
+  Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "nax"] = -80+mean(Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "edad1"])
+  Ciudad2[Ciudad2$edad1>=85, "nax"] = -85+mean(Ciudad2[Ciudad2$edad1>=85, "edad1"])
+  
+  
+  
+  #Crear columna
+  Ciudad2$AGEGRP =0
+  
+  
+  # Agrupar muertes
+  Ciudad2[Ciudad2$edad1 <=4, "AGEGRP"] = 1
+  Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "AGEGRP"] = 2
+  Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "AGEGRP"] = 3
+  Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "AGEGRP"] = 4
+  Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "AGEGRP"] = 5
+  Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "AGEGRP"] = 6
+  Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "AGEGRP"] = 7
+  Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "AGEGRP"] = 8
+  Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "AGEGRP"] = 9
+  Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "AGEGRP"] = 10
+  Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "AGEGRP"] = 11
+  Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "AGEGRP"] = 12
+  Ciudad2[Ciudad2$edad1>=60 & Ciudad2$edad1 <=64, "AGEGRP"] = 13
+  Ciudad2[Ciudad2$edad1>=65 & Ciudad2$edad1 <=69, "AGEGRP"] = 14
+  Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "AGEGRP"] = 15
+  Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "AGEGRP"] = 16
+  Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "AGEGRP"] = 17
+  Ciudad2[Ciudad2$edad1>=85, "AGEGRP"] = 18
+  
+  #Sumarlas
+  TotalMuertes = data.frame(table(factor(Ciudad2$AGEGRP, levels=1:18)))
+  names(TotalMuertes)[names(TotalMuertes) == 'Var1' ]<- "AGEGRP"
+  
+  #Juntarlo todo
+  Total = merge(Ciudad1, TotalMuertes, by="AGEGRP")
+  
+  #Utilizar lo necesario dde la tabla
+  Total = Total %>%
+    select(AGEGRP,CENSUS2010POP, Freq)
+  #Calcular el l0
+  l0 = sum(Total$CENSUS2010POP)
+  Total$lx = l0
+  
+  #Loop que calcula el lx
+  for(i in c(1:18)){
+    Total[i, "lx"] = l0
+    l0 = l0 - Total[i, "Freq"]
+  }
+  
+  # Calcular nax
+  Ciudad2$nax =0
+  
+  
+  Ciudad2[Ciudad2$edad1 <=4, "nax"] = mean(Ciudad2[Ciudad2$edad1 <=4, "edad1"])
+  Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "nax"] = -5+mean(Ciudad2[Ciudad2$edad1>=5 & Ciudad2$edad1 <=9, "edad1"])
+  Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "nax"] = -10 + mean(Ciudad2[Ciudad2$edad1>=10 & Ciudad2$edad1 <=14, "edad1"])
+  Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "nax"] = -15+mean(Ciudad2[Ciudad2$edad1>=15 & Ciudad2$edad1 <=19, "edad1"])
+  Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "nax"] = -20+mean(Ciudad2[Ciudad2$edad1>=20 & Ciudad2$edad1 <=24, "edad1"])
+  Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "nax"] = -25+mean(Ciudad2[Ciudad2$edad1>=25 & Ciudad2$edad1 <=29, "edad1"])
+  Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "nax"] = -30+mean(Ciudad2[Ciudad2$edad1>=30 & Ciudad2$edad1 <=34, "edad1"])
+  Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "nax"] =  -35+mean(Ciudad2[Ciudad2$edad1>=35 & Ciudad2$edad1 <=39, "edad1"])
+  Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "nax"] =  -40+mean(Ciudad2[Ciudad2$edad1>=40 & Ciudad2$edad1 <=44, "edad1"])
+  Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "nax"] = -45+mean(Ciudad2[Ciudad2$edad1>=45 & Ciudad2$edad1 <=49, "edad1"])
+  Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "nax"] = -50+mean(Ciudad2[Ciudad2$edad1>=50 & Ciudad2$edad1 <=54, "edad1"])
+  Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "nax"] = -55+mean(Ciudad2[Ciudad2$edad1>=55 & Ciudad2$edad1 <=59, "edad1"])
+  Ciudad2[Ciudad2$edad1>=60 & Ciudad2$edad1 <=64, "nax"] = -60+mean(Ciudad2[Ciudad2$edad1>60 & Ciudad2$edad1 <=64, "edad1"])
+  Ciudad2[Ciudad2$edad1>=65 & Ciudad2$edad1 <=69, "nax"] = -64+mean(Ciudad2[Ciudad2$edad1>64 & Ciudad2$edad1 <=69, "edad1"])
+  Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "nax"] = -70+mean(Ciudad2[Ciudad2$edad1>=70 & Ciudad2$edad1 <=74, "edad1"])
+  Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "nax"] = -75+mean(Ciudad2[Ciudad2$edad1>=75 & Ciudad2$edad1 <=79, "edad1"])
+  Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "nax"] = -80+mean(Ciudad2[Ciudad2$edad1>=80 & Ciudad2$edad1 <=84, "edad1"])
+  Ciudad2[Ciudad2$edad1>=85, "nax"] = -85+mean(Ciudad2[Ciudad2$edad1>=85, "edad1"])
+  
+  #Sumarlas muertes
+  TotalMuertes = data.frame(table(factor(Ciudad2$AGEGRP, levels=1:18)))
+  names(TotalMuertes)[names(TotalMuertes) == 'Var1' ]<- "AGEGRP"
+  
+  #Seprar nax
+  nax = data.frame(Ciudad2$AGEGRP, Ciudad2$nax)
+  names(nax)[names(nax) == 'Ciudad2.AGEGRP' ]<- "AGEGRP"
+  names(nax)[names(nax) == 'Ciudad2.nax' ]<- "nax"
+  
+  #Unirlo con la frequencia y llenar nas a 0
+  nax = unique(nax)
+  TotalMuertes=merge(nax, TotalMuertes, by="AGEGRP", all=TRUE)
+  TotalMuertes[is.na(TotalMuertes)] <- 0
+  
+  #Juntarlo todo
+  Total = merge(Ciudad1, TotalMuertes, by="AGEGRP")
+  
+  #selecionando columnas necesarias
+  FinalTabla = Total %>%
+    select(AGEGRP,CENSUS2010POP, Freq,nax)
+  l0 = sum(FinalTabla$CENSUS2010POP)
+  FinalTabla$lx = l0
+  
+  #calculando lx
+  for(i in c(1:18)){
+    FinalTabla[i, "lx"] = l0
+    l0 = l0 - FinalTabla[i, "Freq"]
+  }
+  
+  #Mutacion que calcula la tabla de vida
+  life_table <- FinalTabla %>%
+    mutate("nqx"=Freq/lx,
+           "npx"=(lx-Freq)/lx,
+           "Lx"=5*lx+nax,
+           "Tx"=rev(cumsum(rev(Lx))),
+           "e0"=Tx/lx,
+           "nmx"=Freq/Lx,
+    )
+  
+  #Devuelve tabla de vida
+  return(life_table)
+}
+```
+Ahora Imprimimos la tabla
+```{r}
+print(getTableSinSexo(Both2010, Muertes2010))
+```
+Ahora ponemos esta tabla en un csv
+```{r}
+write.csv(data.frame(getTableSinSexo(Both2010, Muertes2010)),"TablaDeVida2010.csv", row.names = FALSE)
+```
